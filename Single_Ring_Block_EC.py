@@ -1,0 +1,268 @@
+# Single_Ring_Block_EC.py
+from tkinter import Label
+
+import gdsfactory as gf
+import pandas as pd
+from AL_Layers import AL_Layers
+from ADF_RIO import ADF_RIO
+
+import time
+T0 = time.time()
+
+gf.gpdk.PDK.activate()
+gf.CONF.max_cellname_length = 35
+
+ConfigFile = "Device_Config_Rings.xlsx"
+
+#----------------------------------------------------------------------------------------------------
+# Loading all device before the gf cell
+#----------------------------------------------------------------------------------------------------
+
+AllDevices = dict()
+
+def LoadSheet(ConfigFile, Sheet):
+    Key = f"{ConfigFile}_{Sheet}"
+    if Key not in AllDevices:
+        AllDevices[Key] = pd.read_excel(ConfigFile, sheet_name=Sheet).dropna().reset_index(drop=True)
+    return AllDevices[Key]
+
+#----------------------------------------------------------------------------------------------------
+# gf cell
+#----------------------------------------------------------------------------------------------------
+
+@gf.cell
+def Single_Ring_Block_EC(
+    ConfigFile   = ConfigFile,
+    ECParams: dict = dict(
+        WidthStart = 0.2,
+        TaperType  = 1,
+        BezierP1   = 0.2,
+        BezierP2   = 0.8,
+        MarkerOn   = True,
+    ),
+    InLengthX0   = 1000,
+    TotLengthX   = 4000,
+    FAGap        = 30,
+    BendRadiusIO = 15,
+    BufLength    = 30,
+    OffsetX_APF: dict = {"15": 12, "20": 12, "30": 12, "40": 12},
+    OffsetY_APF: dict = {"15": 40, "20": 60, "30": 80, "40": 80},
+    OffsetX_APFP: dict = {"15": 12, "20": 12, "30": 12, "40": 12},
+    OffsetY_APFP: dict = {"15": 40, "20": 70, "30": 80, "40": 80},
+    OffsetX_ADF: dict = {"15": 80, "20": 60, "30": 60, "40": 11},
+    OffsetY_ADF: dict = {"15": 40, "20": 90, "30": 85, "40": 95},
+    RadiusVec    = (15,20,30,40),
+    NPerRowAPF:  dict = {"15": 10, "20": 8, "30": 6, "40": 5},
+    NPerRowAPFP: dict = {"15": 8,  "20": 6, "30": 5, "40": 4},
+    NPerRowADF:  dict = {"15": 6,  "20": 5, "30": 4, "40": 3},
+    
+    NCapAPF:  dict = {},
+    NCapAPFP: dict = {},
+    Layer        = AL_Layers.X1P,
+    BlockID      = "B1",
+):
+
+    SRB      = gf.Component()
+    NextRowY = 0
+
+    StartX   = 0
+    
+    LabelPosX = -30 
+    LabelPosY = 12
+    
+    #----------------------------------------------------------------------------------
+    # APF
+    #----------------------------------------------------------------------------------
+
+    APF_Config_EC = LoadSheet(ConfigFile, "APF_EC")
+    print(f"Sheet load: {time.time()-T0:.2f}s")
+    
+    APFs = {}
+
+    for R in RadiusVec:
+        Config_R = APF_Config_EC[APF_Config_EC["BendRadius"] == R].reset_index(drop=True)
+        Config_R = Config_R.head(NCapAPF.get(str(R), len(Config_R)))
+        if Config_R.empty:
+            continue
+        NPerRow   = NPerRowAPF[str(R)]
+        OX        = OffsetX_APF[str(R)]
+        OY        = OffsetY_APF[str(R)]
+        NextX     = 0
+        RowStartY = NextRowY + OY
+        
+        for j, row in Config_R.iterrows():
+            if j % NPerRow == 0 and j != 0:
+
+                RowStartY = NextRowY + OY
+                
+            InLengthX = InLengthX0 + j * (2 * float(row["BendRadius"]) + OX)
+
+            APFs[f"D{j+1}"] = SRB << ADF_RIO(
+                LengthRingX  = 0,
+                LengthRingY  = 0,
+                WgWidth      = float(row["WgWidth"]),
+                WgWidthIO    = float(row["WgWidthIO"]),
+                Gap          = float(row["Gap"]),
+                BendRadius   = float(row["BendRadius"]),
+                BendRadiusIO = BendRadiusIO,
+                InLengthX    = InLengthX,
+                TotLengthX   = TotLengthX,
+                FAGap        = FAGap,
+                TaperOn      = True,
+                OutputIO     = False,
+                LablePosX    = LabelPosX,
+                LablePosY    = LabelPosY,
+                Euler        = 0,
+                BufLength    = BufLength,
+                InIO         = 1,
+                OutIO        = 2,
+                Layer        = Layer,
+                ECParams     = ECParams,
+                DeviceID     = f"{BlockID} A R{R} {j+1}",
+            )
+            if j == 0:
+                APFs[f"D{j+1}"].move((StartX, RowStartY))
+            else:
+                Y = APFs[f"D{j}"].ports["IN"].center[1] + 1*FAGap
+                APFs[f"D{j+1}"].move((StartX, Y))
+
+            NextRowY = max(NextRowY, APFs[f"D{j+1}"].ymax + OY)
+
+    print(f"APF loop done: {time.time()-T0:.2f}s")
+
+    #----------------------------------------------------------------------------------
+    # APF Pulley
+    #----------------------------------------------------------------------------------
+
+    APFP_Config_EC = LoadSheet(ConfigFile, "APFPulley_EC")
+
+    APFPs = {}
+
+    for R in RadiusVec:
+        Config_R = APFP_Config_EC[APFP_Config_EC["BendRadius"] == R].reset_index(drop=True)
+        if Config_R.empty:
+            continue
+        NPerRow   = NPerRowAPFP[str(R)]
+        OX        = OffsetX_APFP[str(R)]
+        OY        = OffsetY_APFP[str(R)]
+        RowStartY = NextRowY + OY
+
+        for j, row in Config_R.iterrows():
+            if j % NPerRow == 0 and j != 0:
+                RowStartY = NextRowY + OY
+                
+            InLengthX = InLengthX0 + j * (2 * float(row["BendRadius"]) + OX)
+
+            InLengthX = max(InLengthX0, InLengthX)
+            if InLengthX >= TotLengthX:
+                InLengthX = InLengthX0
+
+            APFPs[f"D{j+1}"] = SRB << ADF_RIO(
+                LengthRingX  = 0,
+                LengthRingY  = 0,
+                WgWidth      = float(row["WgWidth"]),
+                WgWidthIO    = float(row["WgWidthIO"]),
+                Gap          = float(row["Gap"]),
+                BendRadius   = float(row["BendRadius"]),
+                BendRadiusIO = BendRadiusIO,
+                InLengthX    = InLengthX,
+                TotLengthX   = TotLengthX,
+                FAGap        = FAGap,
+                TaperOn      = True,
+                OutputIO     = False,
+                LablePosX    = LabelPosX,
+                LablePosY    = LabelPosY,
+                Euler        = 0,
+                BufLength    = BufLength,
+                InIO         = 6,
+                OutIO        = 2,
+                Layer        = Layer,
+                ECParams     = ECParams,
+                DeviceID     = f"{BlockID} P R{R} {j+1}",
+            )
+            if j == 0:
+                APFPs[f"D{j+1}"].move((StartX, RowStartY))
+            else:
+                Y = APFPs[f"D{j}"].ports["IN"].center[1] + FAGap
+                APFPs[f"D{j+1}"].move((StartX, Y))
+
+            NextRowY = max(NextRowY, APFPs[f"D{j+1}"].ymax + OY)
+
+    print(f"APFP loop done: {time.time()-T0:.2f}s")
+    
+    #----------------------------------------------------------------------------------
+    # ADF — snake stacking via TH port
+    #----------------------------------------------------------------------------------
+
+    ADF_Config_EC = LoadSheet(ConfigFile, "ADF_EC")
+
+    for R in RadiusVec:
+        Config_R = APFP_Config_EC[APFP_Config_EC["BendRadius"] == R].reset_index(drop=True)
+        Config_R = Config_R.head(NCapAPFP.get(str(R), len(Config_R)))
+        if Config_R.empty:
+            continue
+        OY   = OffsetY_ADF[str(R)]
+        OX   = OffsetX_ADF[str(R)]
+        ADFs = {}
+        RowStartY = NextRowY + OY
+        InLengthX0_R = InLengthX0
+
+        for j, row in Config_R.iterrows():
+            if j % 2 == 0:
+                InLengthX = InLengthX0_R
+            else:
+                InLengthX = TotLengthX - InLengthX0_R - 2*float(row["BendRadius"])-32
+
+            ADFs[f"D{j+1}"] = SRB << ADF_RIO(
+                LengthRingX  = 0,
+                LengthRingY  = 0,
+                WgWidth      = float(row["WgWidth"]),
+                WgWidthIO    = float(row["WgWidthIO"]),
+                Gap          = float(row["Gap"]),
+                BendRadius   = float(row["BendRadius"]),
+                BendRadiusIO = BendRadiusIO,
+                InLengthX    = InLengthX,
+                TotLengthX   = TotLengthX,
+                FAGap        = FAGap,
+                TaperOn      = True,
+                OutputIO     = True,
+                LablePosX    = LabelPosX,
+                LablePosY    = LabelPosY,
+                Euler        = 0,
+                BufLength    = BufLength,
+                InIO         = 1,
+                OutIO        = 4,
+                Layer        = Layer,
+                ECParams     = ECParams,
+                DeviceID     = f"{BlockID} D R{R} {j+1}",
+            )
+
+            if j == 0:
+                ADFs[f"D{j+1}"].move((StartX, RowStartY))
+            elif j % 2 == 1:
+                ADFs[f"D{j+1}"].mirror_x(0)
+                ADFs[f"D{j+1}"].mirror_y(0)
+                Y = ADFs[f"D{j}"].ports["TH"].center[1] + 3*FAGap
+                X = ADFs[f"D{j}"].ports["TH"].center[0]
+                ADFs[f"D{j+1}"].move((X, Y))
+            else:
+                Y = ADFs[f"D{j}"].ports["TH"].center[1] + 1*FAGap
+                ADFs[f"D{j+1}"].move((StartX, Y))
+                
+            InLengthX0_R = InLengthX0_R + 2*float(row["BendRadius"]) + 0*OX +50
+            
+            NextRowY   =  ADFs[f"D{j+1}"].ymax + OY 
+
+    print(f"ADF loop done: {time.time()-T0:.2f}s")
+    
+    #----------------------------------------------------------------------------------
+    # Return
+    #----------------------------------------------------------------------------------
+    return SRB
+
+if __name__ == "__main__":
+    c = Single_Ring_Block_EC()
+    c.show()
+    c.plot()
+    c.write_gds("Single_Ring_Block_EC_test.gds")
+    print("Written Single_Ring_Block_EC_test.gds")

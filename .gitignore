@@ -1,0 +1,60 @@
+
+*.log
+*.lms
+*.gds
+*.fig
+*.png
+*.txt
+*.csv
+*.asv
+
+# GDSFactory+ build artifacts
+build/
+*.egg-info/
+dist/
+
+# Virtual environment
+.venv/
+
+# Python
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Lumerical logs
+*.log
+
+# Large binary/sim files (optional — remove if you want these tracked)
+*.lms
+*.mph
+*.mat
+*.pkl
+*.whl
+*.zip
+*.fsp
+*.h5
+
+*.gds
+
+*.txt
+*.lms
+*.mph
+*.mat
+*.pkl
+*.whl
+*.zip
+*.gds
+*.oas
+*.fig
+*.log
+*.png
+*.jpg
+
+# Force-include results_data even though extensions above are ignored
+!results_data/
+!results_data/**
