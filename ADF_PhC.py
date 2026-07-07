@@ -23,7 +23,7 @@ from ModulatedRing import ModulatedRing
 def ADF_PhC(         
     A       = [0.2],
     M       = [250],
-    NPoints = 3600,
+    NPoints = 36000,
     
     LengthRingX = 0,
     LengthRingY = 0,

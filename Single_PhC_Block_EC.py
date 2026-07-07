@@ -53,14 +53,19 @@ def Single_PhC_Block_EC(
     OffsetY_APF:  dict = {"20": 60, "30": 80},
     OffsetX_APFP: dict = {"20": 12, "30": 12},
     OffsetY_APFP: dict = {"20": 70, "30": 80},
+    
+    OffsetX_ADF: dict = {"20": 12, "30": 12},
+    OffsetY_ADF: dict = {"20": 70, "30": 80},
 
     RadiusVec    = (20, 30),
 
     NPerRowAPF:  dict = {"20": 8, "30": 6},
     NPerRowAPFP: dict = {"20": 6, "30": 5},
+    NPerRowADF: dict = {"20": 6, "30": 5},
     
     NCapAPF:  dict = {},
     NCapAPFP: dict = {},
+    NCapADF: dict = {},
 
     Layer        = AL_Layers.X1P,
     BlockID      = "B1",
@@ -104,6 +109,7 @@ def Single_PhC_Block_EC(
             APFs[f"D{j+1}"] = SRB << ADF_PhC(
                 A            = ReadList(row["A"], float),
                 M            = ReadList(row["M"], int),
+                NPoints      = 36000,
                 LengthRingX  = 0,
                 LengthRingY  = 0,
                 WgWidth      = float(row["WgWidth"]),
@@ -203,6 +209,75 @@ def Single_PhC_Block_EC(
             NextRowY = max(NextRowY, APFPs[f"D{j+1}"].ymax + OY)
 
     print(f"APFP loop done: {time.time()-T0:.2f}s")
+    
+    #----------------------------------------------------------------------------------
+    # ADF
+    #----------------------------------------------------------------------------------
+
+    ADF_Config_EC = LoadSheet(ConfigFile, "PhC_ADF_EC")
+
+    ADFs = {}
+    
+    for R in RadiusVec:
+        Config_R = ADF_Config_EC[ADF_Config_EC["BendRadius"] == R].reset_index(drop=True)
+        Config_R = Config_R.head(NCapADF.get(str(R), len(Config_R)))
+        if Config_R.empty:
+            continue
+        OY   = OffsetY_ADF[str(R)]
+        OX   = OffsetX_ADF[str(R)]
+
+        RowStartY = NextRowY + OY
+        InLengthX0_R = InLengthX0
+
+        for j, row in Config_R.iterrows():
+            if j % 2 == 0:
+                InLengthX = InLengthX0_R
+            else:
+                InLengthX = TotLengthX - InLengthX0_R - 2*float(row["BendRadius"])-32
+
+            ADFs[f"D{j+1}"] = SRB << ADF_PhC(
+                A            = ReadList(row["A"], float),
+                M            = ReadList(row["M"], int),
+                LengthRingX  = 0,
+                LengthRingY  = 0,
+                WgWidth      = float(row["WgWidth"]),
+                WgWidthIO    = float(row["WgWidthIO"]),
+                Gap          = float(row["Gap"]),
+                BendRadius   = float(row["BendRadius"]),
+                BendRadiusIO = BendRadiusIO,
+                InLengthX    = InLengthX,
+                TotLengthX   = TotLengthX,
+                FAGap        = FAGap,
+                TaperOn      = True,
+                OutputIO     = True,
+                LablePosX    = LabelPosX,
+                LablePosY    = LabelPosY,
+                Euler        = 0,
+                BufLength    = BufLength,
+                InIO         = 1,
+                OutIO        = 4,
+                Layer        = Layer,
+                ECParams     = ECParams,
+                DeviceID     = f"{BlockID} PhC ADF R{R} {j+1}",
+            )
+            
+            if j == 0:
+                ADFs[f"D{j+1}"].move((StartX, RowStartY))
+            elif j % 2 == 1:
+                ADFs[f"D{j+1}"].mirror_x(0)
+                ADFs[f"D{j+1}"].mirror_y(0)
+                Y = ADFs[f"D{j}"].ports["TH"].center[1] + 3*FAGap
+                X = ADFs[f"D{j}"].ports["TH"].center[0]
+                ADFs[f"D{j+1}"].move((X, Y))
+            else:
+                Y = ADFs[f"D{j}"].ports["TH"].center[1] + 1*FAGap
+                ADFs[f"D{j+1}"].move((StartX, Y))
+                
+            InLengthX0_R = InLengthX0_R + 2*float(row["BendRadius"]) + 0*OX +50
+            
+            NextRowY   =  ADFs[f"D{j+1}"].ymax + OY 
+
+    print(f"ADF loop done: {time.time()-T0:.2f}s")
 
     return SRB
 
