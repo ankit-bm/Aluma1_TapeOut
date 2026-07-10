@@ -18,16 +18,19 @@ ConfigFile = "Device_Config_Rings.xlsx"
 
 AllDevices = dict()
 
+
 def LoadSheet(ConfigFile, Sheet):
     Key = f"{ConfigFile}_{Sheet}"
     if Key not in AllDevices:
-        AllDevices[Key] = pd.read_excel(ConfigFile, sheet_name=Sheet).dropna().reset_index(drop=True)
+        AllDevices[Key] = pd.read_excel(
+            ConfigFile, sheet_name=Sheet,
+            dtype={"M": str}
+        ).dropna().reset_index(drop=True)
     return AllDevices[Key]
 
 
 def ReadList(x, dtype=float):
-    return [dtype(v.strip()) for v in str(x).split(",")]
-
+    return [dtype(v.strip()) for v in str(x).replace(";", ",").split(",")]
 
 #----------------------------------------------------------------------------------------------------
 # gf cell
@@ -48,6 +51,7 @@ def Single_PhC_Block_EC(
     FAGap        = 30,
     BendRadiusIO = 15,
     BufLength    = 30,
+    NPoints      = 36000,
 
     OffsetX_APF:  dict = {"20": 12, "30": 12},
     OffsetY_APF:  dict = {"20": 60, "30": 80},
@@ -77,11 +81,17 @@ def Single_PhC_Block_EC(
     StartX    = 0
     LabelPosX = -30
     LabelPosY = 12
+    
+    xl = pd.ExcelFile("Device_Config_Rings.xlsx")
+    print(xl.sheet_names)
+
+    df = pd.read_excel("Device_Config_Rings.xlsx", sheet_name="PhC_APFP_EC", dtype=str)
+    print(df["M"].tolist())
 
     #----------------------------------------------------------------------------------
     # APF
     #----------------------------------------------------------------------------------
-
+    
     APF_Config_EC = LoadSheet(ConfigFile, "PhC_APF_EC")
     print(f"Sheet load: {time.time()-T0:.2f}s")
 
@@ -105,11 +115,13 @@ def Single_PhC_Block_EC(
                 RowStartY = NextRowY + OY
 
             InLengthX = InLengthX0 + j * (2 * float(row["BendRadius"]) + OX)
+            
+            # print(row["A"], type(row["A"]), row["M"], type(row["M"]))
 
             APFs[f"D{j+1}"] = SRB << ADF_PhC(
                 A            = ReadList(row["A"], float),
                 M            = ReadList(row["M"], int),
-                NPoints      = 36000,
+                NPoints      = NPoints,
                 LengthRingX  = 0,
                 LengthRingY  = 0,
                 WgWidth      = float(row["WgWidth"]),
@@ -174,9 +186,12 @@ def Single_PhC_Block_EC(
             if InLengthX >= TotLengthX:
                 InLengthX = InLengthX0
 
+            # print(row["A"], type(row["A"]), row["M"], type(row["M"]))
+            
             APFPs[f"D{j+1}"] = SRB << ADF_PhC(
                 A            = ReadList(row["A"], float),
                 M            = ReadList(row["M"], int),
+                NPoints      = NPoints,
                 LengthRingX  = 0,
                 LengthRingY  = 0,
                 WgWidth      = float(row["WgWidth"]),
@@ -234,10 +249,13 @@ def Single_PhC_Block_EC(
                 InLengthX = InLengthX0_R
             else:
                 InLengthX = TotLengthX - InLengthX0_R - 2*float(row["BendRadius"])-32
+                
+            # print(row["A"], type(row["A"]), row["M"], type(row["M"]))
 
             ADFs[f"D{j+1}"] = SRB << ADF_PhC(
                 A            = ReadList(row["A"], float),
                 M            = ReadList(row["M"], int),
+                NPoints      = NPoints,
                 LengthRingX  = 0,
                 LengthRingY  = 0,
                 WgWidth      = float(row["WgWidth"]),

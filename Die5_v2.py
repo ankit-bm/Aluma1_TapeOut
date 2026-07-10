@@ -14,7 +14,7 @@ gf.gpdk.PDK.activate()
 gf.CONF.max_cellname_length = 35
 
 @gf.cell
-def Die5(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
+def Die5(DieWidth = 3468, DieHeight = 20800, TaperLength = 400,
         WgWidth = 0.6, Layer = AL_Layers.CHS,):
 
     D       = gf.Component()
@@ -23,6 +23,7 @@ def Die5(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
     StartY  = 0
     
     FAGap   = 127
+    FAGap2  = 25
     
     TotLengthX_GC = 3200
     
@@ -38,14 +39,16 @@ def Die5(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
     
     # How many GC Ring block?
     GC_RowStart = 5
-    GC_RowEnd   = 8
+    GC_RowEnd   = 6
 
     #----------------------------------------------------------------------------------
     # GC Characterization
     #----------------------------------------------------------------------------------
+    
+    NPerRowList = [28, 28, 30, 30,29,30]   # one entry per physical row
+    RowBoundaries = np.cumsum(NPerRowList)   # e.g. [27, 52, 82, 102]
 
-    NPerRow  = 31
-    OffsetX  = 23
+    OffsetX  = 17
     OffsetY  = 40
     BendRadiusIO_GC = 15
 
@@ -65,6 +68,8 @@ def Die5(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
                             BendRadius     = BendRadiusIO_GC,
                             WgWidth        = WgWidth,
                             Layer          = AL_Layers.X1P,
+                            LablePosX    = 20,
+                            LablePosY    = -60,
                             GCParams     = dict(
                                 Pitch          = float(row["GC_Pitch"]),
                                 DutyCycle      = float(row["GC_DutyCycle"]),
@@ -72,14 +77,14 @@ def Die5(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
                                 NPeriod        = int(row["GC_NPeriod"]),
                                 taper_length   = float(row["GC_TaperLength"]),
                                 taper_angle    = float(row["GC_TaperAngle"]),
-                                LengthGC       = 100,
+                                LengthGC       = 50,
                                 wavelength     = 1.55,
                                 fiber_angle    = 10.0,
                                 ),
                             DeviceID       = f"{j+1}"
                         )
 
-        if j % NPerRow == 0 and j != 0:
+        if j in RowBoundaries:
             NextX     = StartX
             RowStartY = NextRowY
 
@@ -89,7 +94,7 @@ def Die5(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
         NextRowY = max(NextRowY, GC_Devs[key].ymax + OffsetY)
 
         RingBlockStartY = GC_Devs[key].ymax
-    
+
     #---------------------------------------------------------------------------
     # Blocks
     #---------------------------------------------------------------------------
@@ -101,9 +106,9 @@ def Die5(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
         FAGap        = FAGap,
         BendRadiusIO = 15,
         BufLength    = 15,
-        OffsetX_APF  = {"15": 13, "20": 12, "30": 13, "40": 13},
+        OffsetX_APF  = {"15": 0, "20": 0, "30": 0, "40": 0},
         OffsetY_APF  = {"15": 20, "20": 20, "30": 20, "40": 20},
-        OffsetX_APFP = {"15": 13, "20": 12, "30": 13, "40": 13},
+        OffsetX_APFP = {"15": 0, "20": 0, "30": 0, "40": 0},
         OffsetY_APFP = {"15": 20, "20": 20, "30": 20, "40": 20},
         OffsetX_ADF  = {"15": 14, "20": 12, "30": 12, "40": 11 },
         OffsetY_ADF  = {"15": 20, "20": 20, "30": 20, "40": 20},
@@ -111,14 +116,10 @@ def Die5(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
         NPerRowAPF   = {"15": 26, "20": 24, "30": 21, "40": 18},
         NPerRowAPFP  = {"15": 26, "20": 24, "30": 21, "40": 18},
         NPerRowADF   = {"15": 26, "20": 25, "30": 27, "40": 21},
-        NCapAPF      = {"15": 26, "20": 24, "30": 21, "40": 18},
-        NCapAPFP     = {"15": 26, "20": 24, "30": 21, "40": 18},
-        NCapADF      = {"15": 26, "20": 25, "30": 27, "40": 21},
     )
     
     GC_Config_Blocks = pd.read_excel(ConfigFile, sheet_name="GCParams").dropna().reset_index(drop=True).iloc[GC_RowStart:GC_RowEnd]
 
-    
     NextY     = RingBlockStartY + BlockGapY
 
     for j, row in GC_Config_Blocks.iterrows():
@@ -136,14 +137,16 @@ def Die5(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
         )
 
         RadiusVec = (15, 20, 30, 40)                 # default — override per block below
-
-        # per-block NPerRow overrides
         BlockParamsB = BlockParams.copy()
         if BlockNo == 6:
-            BlockParamsB["NCapAPF"]  = {"15": 25, "20": 23, "30": 20, "40": 19}
-            BlockParamsB["NCapAPFP"] = {"15": 25, "20": 23, "30": 20, "40": 19}
-            BlockParamsB["NCapADF"]  = {"15": 25, "20": 24, "30": 26, "40": 20}
-            
+            BlockParamsB["NCapAPF"]  = {"15": 25, "20": 23, "30": 20, "40": 18}
+            BlockParamsB["NCapAPFP"] = {"15": 25, "20": 23, "30": 20, "40": 18}
+            BlockParamsB["NCapADF"]  = {"15": 22, "20": 21, "30": 19, "40": 17}
+
+        print(f"BlockNo {BlockNo}: Pitch={GCParams['Pitch']}, DutyCycle={GCParams['DutyCycle']}, "
+        f"NPeriod={GCParams['NPeriod']}, TaperLength={GCParams['taper_length']}, "
+        f"TaperAngle={GCParams['taper_angle']}")
+
         Path = f"GC_RingBlock_B{BlockNo}.gds"
 
         if not Debug and os.path.exists(Path):
@@ -158,24 +161,149 @@ def Die5(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
         B.xmin = StartX
         B.ymin = NextY
         NextY  = B.ymax + BlockGapY
+    
+    #---------------------------------------------------------------------------
+    # PhC Ring Blocks
+    #---------------------------------------------------------------------------
 
+    PhC_BlockVec = [1,2,3,4,5]   # choose GCParams BlockNo here
+
+    PhC_Config_Blocks = pd.read_excel(
+        ConfigFile, sheet_name="GCParams"
+    ).dropna(subset=["BlockNo"]).reset_index(drop=True)
+
+    PhC_Config_Blocks = PhC_Config_Blocks[
+        PhC_Config_Blocks["BlockNo"].astype(int).isin(PhC_BlockVec)
+    ].reset_index(drop=True)
+    
+    PhCBlockParams = dict(
+        ConfigFile   = ConfigFile,
+        InLengthX    = 50,
+        TotLengthX   = 120,
+        FAGap        = FAGap,
+        FAGapEC      = FAGap,
+        BendRadiusIO = 15,
+        BufLength    = 15,
+        
+        NPoints      = 20*36000,
+        
+        LablePosX    = -30,
+        LablePosY    = -127/2,
+
+        OffsetX_APF  = {"20": 0, "30": 0},
+        OffsetY_APF  = {"20": 20, "30": 20},
+        OffsetX_APFP = {"20": 0, "30": 0},
+        OffsetY_APFP = {"20": 20, "30": 20},
+        OffsetX_ADF  = {"20": 14, "30": 12},
+        OffsetY_ADF  = {"20": 20, "30": 20},
+
+        RadiusVec    = (20, 30),
+
+        NPerRowAPF   = {"20": 22, "30": 19},
+        NPerRowAPFP  = {"20": 22, "30": 19},
+        NPerRowADF   = {"20": 20, "30": 18},
+
+        NCapAPF      = {"20": 44, "30": 38},
+        NCapAPFP     = {"20": 44, "30": 38},
+        NCapADF      = {"20": 20, "30": 18},
+
+        Layer        = AL_Layers.X1P,
+    )
+        
+    for j, row in PhC_Config_Blocks.iterrows():
+        BlockNo = int(row["BlockNo"])
+
+        GCParams = dict(
+            Pitch          = float(row["GC_Pitch"]),
+            DutyCycle      = float(row["GC_DutyCycle"]),
+            NPeriod        = int(row["GC_NPeriod"]),
+            taper_length   = float(row["GC_TaperLength"]),
+            taper_angle    = float(row["GC_TaperAngle"]),
+            LengthGC       = 50,
+            wavelength     = 1.55,
+            fiber_angle    = 10.0,
+            UniformGrating = True,
+        )
+
+        PhCBlockParamsB = PhCBlockParams.copy()
+
+        if BlockNo == 2:
+            
+            PhCBlockParamsB["NPerRowAPF"]   = {"20": 23, "30": 20}
+            PhCBlockParamsB["NPerRowAPFP"]  = {"20": 23, "30": 20}
+            PhCBlockParamsB["NPerRowADF"]   = {"20": 20, "30": 18}
+            PhCBlockParamsB["NCapAPF"]  = {"20": 46, "30": 40}
+            PhCBlockParamsB["NCapAPFP"] = {"20": 46, "30": 40}
+            PhCBlockParamsB["NCapADF"]  = {"20": 20, "30": 18}
+        
+        if BlockNo == 3:
+            PhCBlockParamsB["NPerRowAPF"]   = {"20": 23, "30": 20}
+            PhCBlockParamsB["NPerRowAPFP"]  = {"20": 22, "30": 20}
+            PhCBlockParamsB["NPerRowADF"]   = {"20": 20, "30": 18}
+            PhCBlockParamsB["NCapAPF"]  = {"20": 46, "30": 40}
+            PhCBlockParamsB["NCapAPFP"] = {"20": 44, "30": 40}
+            PhCBlockParamsB["NCapADF"]  = {"20": 20, "30": 18}
+            
+        if BlockNo == 4:
+            PhCBlockParamsB["NPerRowAPF"]   = {"20": 23, "30": 20}
+            PhCBlockParamsB["NPerRowAPFP"]  = {"20": 23, "30": 20}
+            PhCBlockParamsB["NPerRowADF"]   = {"20": 20, "30": 18}
+            PhCBlockParamsB["NCapAPF"]  = {"20": 46, "30": 40}
+            PhCBlockParamsB["NCapAPFP"] = {"20": 46, "30": 40}
+            PhCBlockParamsB["NCapADF"]  = {"20": 20, "30": 18}
+            
+        if BlockNo == 5:
+            PhCBlockParamsB["NPerRowAPF"]   = {"20": 22, "30": 19}
+            PhCBlockParamsB["NPerRowAPFP"]  = {"20": 22, "30": 19}
+            PhCBlockParamsB["NPerRowADF"]   = {"20": 20, "30": 18}
+            PhCBlockParamsB["NCapAPF"]  = {"20": 44, "30": 38}
+            PhCBlockParamsB["NCapAPFP"] = {"20": 44, "30": 38}
+            PhCBlockParamsB["NCapADF"]  = {"20": 20, "30": 18}
+            
+        if BlockNo == 6:
+            PhCBlockParamsB["NPerRowAPF"]   = {"20": 22, "30": 19}
+            PhCBlockParamsB["NPerRowAPFP"]  = {"20": 22, "30": 19}
+            PhCBlockParamsB["NPerRowADF"]   = {"20": 19, "30": 17}
+            PhCBlockParamsB["NCapAPF"]  = {"20": 44, "30": 38}
+            PhCBlockParamsB["NCapAPFP"] = {"20": 44, "30": 38}
+            PhCBlockParamsB["NCapADF"]  = {"20": 20, "30": 18}
+
+        Path = f"GC_PhCBlock_B{BlockNo}.gds"
+
+        if not Debug and os.path.exists(Path):
+            print(f"PhC B{BlockNo} loaded from saved gds")
+            B = D << gf.import_gds(Path)
+        else:
+            print(f"PhC B{BlockNo} computing...")
+            Block = Single_PhC_Block_GC(
+                GCParams = GCParams,
+                BlockID  = f"B{BlockNo}",
+                **PhCBlockParamsB,
+            )
+            Block.write_gds(Path)
+            B = D << Block
+
+        B.xmin = StartX
+        B.ymin = NextY
+        NextY  = B.ymax + BlockGapY
+        
     #------------------------------
     # Loss Characterization Wg GC
     #------------------------------
 
     GC_Loss_Config = pd.read_excel(ConfigFile, sheet_name="GCParams").dropna(subset=["BlockNo"]).reset_index(drop=True)
 
-    GC_Loss_BlockVec = [2, 6, 8, 10]
+    GC_Loss_BlockVec = [1,2,3,4]
 
     GC_Loss_Config = GC_Loss_Config[
         GC_Loss_Config["BlockNo"].astype(int).isin(GC_Loss_BlockVec)
     ].reset_index(drop=True)
 
-    NCurveVec     = [(0,2), (2,1), (4,1)] # (NCurves, NRepeat)
+    NCurveVec     = [(0,2)] # (NCurves, NRepeat)
     LossWgGapY    = 20
     WgWidthLoss   = 0.6
     LossInLengthX = TotLengthX_GC - 10
-    MaxY          = DieHeight - 100
+    MaxY          = DieHeight - 1100
 
     LossNextY = NextY + BlockGapY -130
 
@@ -215,84 +343,6 @@ def Die5(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
                 LossNextY = LW.ymax + LossWgGapY
 
     NextY = LossNextY   
-    
-    #---------------------------------------------------------------------------
-    # PhC Ring Blocks
-    #---------------------------------------------------------------------------
-
-    PhC_BlockVec = [6, 8, 10,11]   # choose GCParams BlockNo here
-
-    PhC_Config_Blocks = pd.read_excel(
-        ConfigFile, sheet_name="GCParams"
-    ).dropna(subset=["BlockNo"]).reset_index(drop=True)
-
-    PhC_Config_Blocks = PhC_Config_Blocks[
-        PhC_Config_Blocks["BlockNo"].astype(int).isin(PhC_BlockVec)
-    ].reset_index(drop=True)
-    
-    PhCBlockParams = dict(
-        ConfigFile   = ConfigFile,
-        InLengthX    = 75,
-        TotLengthX   = 500,
-        FAGap        = FAGap,
-        BendRadiusIO = 15,
-        BufLength    = 15,
-
-        OffsetX_APF  = {"20": 13, "30": 13},
-        OffsetY_APF  = {"20": 20, "30": 20},
-        OffsetX_APFP = {"20": 13, "30": 13},
-        OffsetY_APFP = {"20": 20, "30": 20},
-
-        RadiusVec    = (20, 30),
-
-        NPerRowAPF   = {"20": 25, "30": 25},
-        NPerRowAPFP  = {"20": 25, "30": 25},
-
-        NCapAPF      = {"20": 20, "30": 18},
-        NCapAPFP     = {"20": 20, "30": 18},
-
-        Layer        = AL_Layers.X1P,
-    )
-        
-    for j, row in PhC_Config_Blocks.iterrows():
-        BlockNo = int(row["BlockNo"])
-
-        GCParams = dict(
-            Pitch          = float(row["GC_Pitch"]),
-            DutyCycle      = float(row["GC_DutyCycle"]),
-            NPeriod        = int(row["GC_NPeriod"]),
-            taper_length   = float(row["GC_TaperLength"]),
-            taper_angle    = float(row["GC_TaperAngle"]),
-            LengthGC       = 50,
-            wavelength     = 1.55,
-            fiber_angle    = 10.0,
-            UniformGrating = True,
-        )
-
-        PhCBlockParamsB = PhCBlockParams.copy()
-
-        if BlockNo == PhC_BlockVec[-1]:
-            PhCBlockParamsB["NCapAPF"]  = {"20": 20, "30": 0}
-            PhCBlockParamsB["NCapAPFP"] = {"20": 20, "30": 0}
-            
-        Path = f"GC_PhCBlock_B{BlockNo}.gds"
-
-        if not Debug and os.path.exists(Path):
-            print(f"PhC B{BlockNo} loaded from saved gds")
-            B = D << gf.import_gds(Path)
-        else:
-            print(f"PhC B{BlockNo} computing...")
-            Block = Single_PhC_Block_GC(
-                GCParams = GCParams,
-                BlockID  = f"B{BlockNo}",
-                **PhCBlockParamsB,
-            )
-            Block.write_gds(Path)
-            B = D << Block
-
-        B.xmin = StartX
-        B.ymin = NextY
-        NextY  = B.ymax + BlockGapY
 
     #---------------------------------------------------------------------------
     # Return
@@ -302,7 +352,7 @@ def Die5(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
 
 if __name__ == "__main__":
     c = Die5()
-    c.write_gds("Die5_test4.gds")
-    print("Written Die5_test4.gds")
+    c.write_gds("Die5_test7.gds")
+    print("Written Die5_test7.gds")
     c.show()
     c.plot()

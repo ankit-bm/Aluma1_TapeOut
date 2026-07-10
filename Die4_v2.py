@@ -13,7 +13,7 @@ gf.gpdk.PDK.activate()
 gf.CONF.max_cellname_length = 35
 
 @gf.cell
-def Die4(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
+def Die4(DieWidth = 3468, DieHeight = 20800, TaperLength = 400,
         WgWidth = 0.6, Layer = AL_Layers.CHS,):
 
     D       = gf.Component()
@@ -27,7 +27,7 @@ def Die4(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
     
     TotLengthX_GC = 3200
 
-    Debug = False
+    Debug = True
     DebugFrame = True
 
     if DebugFrame:
@@ -42,9 +42,11 @@ def Die4(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
     #----------------------------------------------------------------------------------
     # GC Characterization
     #----------------------------------------------------------------------------------
+    
+    NPerRowList = [28, 28, 30, 30,29,30]   # one entry per physical row
+    RowBoundaries = np.cumsum(NPerRowList)   # e.g. [27, 52, 82, 102]
 
-    NPerRow  = 31
-    OffsetX  = 23
+    OffsetX  = 17
     OffsetY  = 40
     BendRadiusIO_GC = 15
 
@@ -64,6 +66,8 @@ def Die4(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
                             BendRadius     = BendRadiusIO_GC,
                             WgWidth        = WgWidth,
                             Layer          = AL_Layers.X1P,
+                            LablePosX    = 20,
+                            LablePosY    = -60,
                             GCParams     = dict(
                                 Pitch          = float(row["GC_Pitch"]),
                                 DutyCycle      = float(row["GC_DutyCycle"]),
@@ -71,14 +75,14 @@ def Die4(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
                                 NPeriod        = int(row["GC_NPeriod"]),
                                 taper_length   = float(row["GC_TaperLength"]),
                                 taper_angle    = float(row["GC_TaperAngle"]),
-                                LengthGC       = 100,
+                                LengthGC       = 50,
                                 wavelength     = 1.55,
                                 fiber_angle    = 10.0,
                                 ),
                             DeviceID       = f"{j+1}"
                         )
 
-        if j % NPerRow == 0 and j != 0:
+        if j in RowBoundaries:
             NextX     = StartX
             RowStartY = NextRowY
 
@@ -100,9 +104,9 @@ def Die4(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
         FAGap        = FAGap,
         BendRadiusIO = 15,
         BufLength    = 15,
-        OffsetX_APF  = {"15": 13, "20": 12, "30": 13, "40": 13},
+        OffsetX_APF  = {"15": 0, "20": 0, "30": 0, "40": 0},
         OffsetY_APF  = {"15": 20, "20": 20, "30": 20, "40": 20},
-        OffsetX_APFP = {"15": 13, "20": 12, "30": 13, "40": 13},
+        OffsetX_APFP = {"15": 0, "20": 0, "30": 0, "40": 0},
         OffsetY_APFP = {"15": 20, "20": 20, "30": 20, "40": 20},
         OffsetX_ADF  = {"15": 14, "20": 12, "30": 12, "40": 11 },
         OffsetY_ADF  = {"15": 20, "20": 20, "30": 20, "40": 20},
@@ -131,8 +135,35 @@ def Die4(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
         )
 
         RadiusVec = (15, 20, 30, 40)                 # default — override per block below
-        # if BlockNo == 13: RadiusVec = (15, 20)
-        # if BlockNo == 11: RadiusVec = (15, 20, 30) # example
+        BlockParamsB = BlockParams.copy()
+        if BlockNo == 1:
+            BlockParamsB["NCapAPF"]  = {"15": 23, "20": 22, "30": 19, "40": 17}
+            BlockParamsB["NCapAPFP"] = {"15": 23, "20": 22, "30": 19, "40": 17}
+            BlockParamsB["NCapADF"]  = {"15": 21, "20": 20, "30": 18, "40": 16}
+            
+        if BlockNo == 2:
+            BlockParamsB["NCapAPF"]  = {"15": 25, "20": 23, "30": 20, "40": 18}
+            BlockParamsB["NCapAPFP"] = {"15": 25, "20": 23, "30": 20, "40": 18}
+            BlockParamsB["NCapADF"]  = {"15": 22, "20": 21, "30": 19, "40": 17}
+            
+        if BlockNo == 3:
+            BlockParamsB["NCapAPF"]  = {"15": 24, "20": 23, "30": 20, "40": 18}
+            BlockParamsB["NCapAPFP"] = {"15": 24, "20": 23, "30": 20, "40": 17}
+            BlockParamsB["NCapADF"]  = {"15": 22, "20": 21, "30": 18, "40": 16}
+            
+        if BlockNo == 4:
+            BlockParamsB["NCapAPF"]  = {"15": 25, "20": 23, "30": 20, "40": 18}
+            BlockParamsB["NCapAPFP"] = {"15": 25, "20": 23, "30": 20, "40": 18}
+            BlockParamsB["NCapADF"]  = {"15": 22, "20": 21, "30": 19, "40": 17}
+            
+        if BlockNo == 5:
+            BlockParamsB["NCapAPF"]  = {"15": 23, "20": 22, "30": 19, "40": 17}
+            BlockParamsB["NCapAPFP"] = {"15": 23, "20": 22, "30": 19, "40": 17}
+            BlockParamsB["NCapADF"]  = {"15": 21, "20": 20, "30": 18, "40": 16}
+            
+        print(f"BlockNo {BlockNo}: Pitch={GCParams['Pitch']}, DutyCycle={GCParams['DutyCycle']}, "
+        f"NPeriod={GCParams['NPeriod']}, TaperLength={GCParams['taper_length']}, "
+        f"TaperAngle={GCParams['taper_angle']}")
 
         Path = f"GC_RingBlock_B{BlockNo}.gds"
 
@@ -141,13 +172,70 @@ def Die4(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
             B = D << gf.import_gds(Path)
         else:
             print(f"B{BlockNo} computing...")
-            Block = Single_Ring_Block_GC(GCParams=GCParams, BlockID=f"B{BlockNo}", RadiusVec=RadiusVec, **BlockParams)
+            Block = Single_Ring_Block_GC(GCParams=GCParams, BlockID=f"B{BlockNo}", RadiusVec=RadiusVec, **BlockParamsB)
             Block.write_gds(Path)
             B = D << Block
 
         B.xmin = StartX
         B.ymin = NextY
         NextY  = B.ymax + BlockGapY
+        
+    #------------------------------
+    # Loss Characterization Wg GC
+    #------------------------------
+
+    GC_Loss_Config = pd.read_excel(ConfigFile, sheet_name="GCParams").dropna(subset=["BlockNo"]).reset_index(drop=True)
+
+    GC_Loss_BlockVec = [1,2,3,4,5]
+
+    GC_Loss_Config = GC_Loss_Config[
+        GC_Loss_Config["BlockNo"].astype(int).isin(GC_Loss_BlockVec)
+    ].reset_index(drop=True)
+
+    NCurveVec     = [(0,1), (2,1)] # (NCurves, NRepeat)
+    LossWgGapY    = 20
+    WgWidthLoss   = 0.6
+    LossInLengthX = TotLengthX_GC - 10
+    MaxY          = DieHeight - 100
+
+    LossNextY = NextY + BlockGapY -130
+
+    for j, row in GC_Loss_Config.iterrows():
+        GCParamsLoss = dict(
+            Pitch          = float(row["GC_Pitch"]),
+            DutyCycle      = float(row["GC_DutyCycle"]),
+            NPeriod        = int(row["GC_NPeriod"]),
+            taper_length   = float(row["GC_TaperLength"]),
+            taper_angle    = float(row["GC_TaperAngle"]),
+            fiber_angle    = 10.0,
+            wavelength     = 1.55,
+            LengthGC       = 100,
+            UniformGrating = True,
+        )
+
+        for N, NRepeat in NCurveVec:
+            for k in range(NRepeat):
+                if LossNextY >= MaxY:
+                    break
+                LossLength = (N + 1) * LossInLengthX
+                LW = D << SurpentineLossWg(
+                    WgWidth      = WgWidthLoss,
+                    InLengthX    = LossInLengthX,
+                    BendRadiusIO = 15,
+                    NCurves      = N,
+                    TaperOn      = False,
+                    Euler        = 0,
+                    LabelX       = 0,
+                    LabelY       = 10,
+                    Layer        = AL_Layers.X1P,
+                    GCParams     = GCParamsLoss,
+                    DeviceID     = f"L{LossLength}GC{int(row['BlockNo'])}",
+                )
+                LW.xmin   = StartX
+                LW.ymin   = LossNextY
+                LossNextY = LW.ymax + LossWgGapY
+
+    NextY = LossNextY   
         
     #---------------------------------------------------------------------------
     # Return
@@ -157,7 +245,7 @@ def Die4(DieWidth = 3468, DieHeight = 20780, TaperLength = 400,
 
 if __name__ == "__main__":
     c = Die4()
-    c.write_gds("Die4_test4.gds")
-    print("Written Die4_test4.gds")
+    c.write_gds("Die4_test7.gds")
+    print("Written Die4_test7.gds")
     c.show()
     c.plot()

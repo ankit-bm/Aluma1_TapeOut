@@ -53,7 +53,8 @@ def SurpentineLossWg(
     ########################################################################################
 
     if TaperOn:
-        Coupler = AL_Taper(WidthStart=WgWidth, Layer=Layer, **ECParams)
+        ECParams.setdefault("WidthStart", WgWidth)
+        Coupler = AL_Taper(Layer=Layer, **ECParams)
     else:
         Coupler = AL_GratingCoupler(GCWidthIO=0.6, WgWidthIO=WgWidth, layer=Layer, **GCParams)
     CPort = "o1"

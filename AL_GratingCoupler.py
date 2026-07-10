@@ -3,7 +3,6 @@ from AL_Taper import AL_Taper
 
 gf.CONF.max_cellname_length = 35
 
-
 @gf.cell
 def AL_GratingCoupler(Pitch=0.6,DutyCycle =0.4,UniformGrating = True,NPeriod=20,gaps=(0.1,)*20,widths=(0.25,)*20, polarization="te", taper_length=15.0,
                     GCWidthIO=0.6, WgWidthIO=0.7, LengthGC =60,

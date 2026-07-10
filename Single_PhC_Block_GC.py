@@ -21,13 +21,15 @@ AllDevices = dict()
 def LoadSheet(ConfigFile, Sheet):
     Key = f"{ConfigFile}_{Sheet}"
     if Key not in AllDevices:
-        AllDevices[Key] = pd.read_excel(ConfigFile, sheet_name=Sheet).dropna().reset_index(drop=True)
+        AllDevices[Key] = pd.read_excel(
+            ConfigFile, sheet_name=Sheet,
+            dtype={"M": str}
+        ).dropna().reset_index(drop=True)
     return AllDevices[Key]
 
 
 def ReadList(x, dtype=float):
-    return [dtype(v.strip()) for v in str(x).split(",")]
-
+    return [dtype(v.strip()) for v in str(x).replace(";", ",").split(",")]
 
 #----------------------------------------------------------------------------------------------------
 # gf cell
@@ -50,21 +52,31 @@ def Single_PhC_Block_GC(
     InLengthX    = 75,
     TotLengthX   = 500,
     FAGap        = 127,
+    FAGapEC      = 25,
     BendRadiusIO = 15,
     BufLength    = 30,
+    
+    NPoints      = 4*36000,
+    
+    LablePosX    = 20,
+    LablePosY    = 20,
 
     OffsetX_APF:  dict = {"20": 25, "30": 25},
     OffsetY_APF:  dict = {"20": 20, "30": 20},
     OffsetX_APFP: dict = {"20": 25, "30": 25},
     OffsetY_APFP: dict = {"20": 20, "30": 20},
+    OffsetX_ADF:  dict = {"20": 14, "30": 12},
+    OffsetY_ADF:  dict = {"20": 20, "30": 20},
 
     RadiusVec    = (20, 30),
 
     NPerRowAPF:  dict = {"20": 25, "30": 25},
     NPerRowAPFP: dict = {"20": 25, "30": 25},
+    NPerRowADF:  dict = {"20": 25, "30": 25},
 
     NCapAPF:  dict = {"20": 25, "30": 25},
     NCapAPFP: dict = {"20": 25, "30": 25},
+    NCapADF:  dict = {"20": 25, "30": 25},
 
     Layer        = AL_Layers.X1P,
     BlockID      = "B1",
@@ -102,6 +114,7 @@ def Single_PhC_Block_GC(
             Dev = SRB << ADF_PhC(
                 A            = ReadList(row["A"], float),
                 M            = ReadList(row["M"], int),
+                NPoints      = 4*36000,
                 LengthRingX  = 0,
                 LengthRingY  = 0,
                 WgWidth      = float(row["WgWidth"]),
@@ -114,15 +127,15 @@ def Single_PhC_Block_GC(
                 FAGap        = FAGap,
                 TaperOn      = False,
                 OutputIO     = False,
-                LablePosX    = -30,
-                LablePosY    = -60,
+                LablePosX    = LablePosX,
+                LablePosY    = LablePosY,
                 Euler        = 0,
                 BufLength    = BufLength,
                 InIO         = 2,
                 OutIO        = 2,
                 Layer        = Layer,
                 GCParams     = GCParams,
-                DeviceID     = f"{BlockID} PhC R{R} {j+1}",
+                DeviceID     = f"{BlockID}PhC R{R}{j+1}",
             )
             Dev.xmin = NextX
             Dev.ymin = RowStartY
@@ -157,6 +170,7 @@ def Single_PhC_Block_GC(
             Dev = SRB << ADF_PhC(
                 A            = ReadList(row["A"], float),
                 M            = ReadList(row["M"], int),
+                NPoints      = 4*36000,
                 LengthRingX  = 0,
                 LengthRingY  = 0,
                 WgWidth      = float(row["WgWidth"]),
@@ -169,15 +183,15 @@ def Single_PhC_Block_GC(
                 FAGap        = FAGap,
                 TaperOn      = False,
                 OutputIO     = False,
-                LablePosX    = -30,
-                LablePosY    = -60,
+                LablePosX    = LablePosX,
+                LablePosY    = LablePosY,
                 Euler        = 0,
                 BufLength    = BufLength,
                 InIO         = 7,
                 OutIO        = 2,
                 Layer        = Layer,
                 GCParams     = GCParams,
-                DeviceID     = f"{BlockID} PhC P R{R} {j+1}",
+                DeviceID     = f"{BlockID}PhCP R{R}{j+1}",
             )
             Dev.xmin = NextX
             Dev.ymin = RowStartY
@@ -185,6 +199,62 @@ def Single_PhC_Block_GC(
             NextRowY = max(NextRowY, Dev.ymax + OY)
 
     print(f"APFP loop done: {time.time()-T0:.2f}s")
+    
+    #----------------------------------------------------------------------------------
+    # ADF
+    #----------------------------------------------------------------------------------
+
+    ADF_Config_GC = LoadSheet(ConfigFile, "PhC_ADF_GC")
+
+    for R in RadiusVec:
+        Config_R  = ADF_Config_GC[ADF_Config_GC["BendRadius"] == R].reset_index(drop=True)
+        Config_R  = Config_R.head(NCapADF.get(str(R), len(Config_R)))
+        if Config_R.empty:
+            continue
+
+        NPerRow   = NPerRowADF[str(R)]
+        OX        = OffsetX_ADF[str(R)]
+        OY        = OffsetY_ADF[str(R)]
+        NextX     = 0
+        RowStartY = NextRowY + OY
+
+        for j, row in Config_R.iterrows():
+            if j % NPerRow == 0 and j != 0:
+                NextX     = 0
+                RowStartY = NextRowY + OY
+
+            Dev = SRB << ADF_PhC(
+                A            = ReadList(row["A"], float),
+                M            = ReadList(row["M"], int),
+                NPoints      = 4*36000,
+                LengthRingX  = 0,
+                LengthRingY  = 0,
+                WgWidth      = float(row["WgWidth"]),
+                WgWidthIO    = float(row["WgWidthIO"]),
+                Gap          = float(row["Gap"]),
+                BendRadius   = float(row["BendRadius"]),
+                BendRadiusIO = BendRadiusIO,
+                InLengthX    = InLengthX,
+                TotLengthX   = TotLengthX,
+                FAGap        = FAGapEC,
+                TaperOn      = False,
+                OutputIO     = True,
+                LablePosX    = LablePosX,
+                LablePosY    = LablePosY,
+                Euler        = 0,
+                BufLength    = BufLength,
+                InIO         = 2,
+                OutIO        = 2,
+                Layer        = Layer,
+                GCParams     = GCParams,
+                DeviceID     = f"{BlockID}PhC R{R}{j+1}",
+            )
+            Dev.xmin = NextX
+            Dev.ymin = RowStartY
+            NextX    = Dev.xmax + OX
+            NextRowY = max(NextRowY, Dev.ymax + OY)
+
+    print(f"ADF loop done: {time.time()-T0:.2f}s")
 
     return SRB
 

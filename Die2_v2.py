@@ -15,20 +15,21 @@ gf.CONF.max_cellname_length = 35
 ConfigFile = "Device_Config_Rings.xlsx"
 
 @gf.cell
-def Die2(DieWidth = 4468, DieHeight = 20780, TaperLength = 400, Layer = AL_Layers.CHS,):
+def Die2(DieWidth = 4468, DieHeight = 20800, TaperLength = 400, Layer = AL_Layers.CHS,):
 
     D      = gf.Component()
-    StartX = 0
+    StartX = 50
     StartY = 75
     FAGap  = 25
-    Debug  = False
 
-    TotLengthX_EC = DieWidth - 2*TaperLength + 10
+    EdgeMarginX = 50
     
-    Debug = False
+    Debug = True
     DebugFrame = True
     
-    MaxY = DieHeight - 80
+    TotLengthX_EC = DieWidth - 2*TaperLength + 10 - 2*EdgeMarginX
+    
+    MaxY = DieHeight - 50
 
     if DebugFrame:
         die_outline = D << gf.components.rectangle(size=(DieWidth, DieHeight), layer=Layer)
@@ -103,7 +104,7 @@ def Die2(DieWidth = 4468, DieHeight = 20780, TaperLength = 400, Layer = AL_Layer
         ConfigFile   = ConfigFile,
         InLengthX0   = 200,
         TotLengthX   = TotLengthX_EC,
-        NPoints      = 4*36000,
+        NPoints      = 12*36000,
         FAGap        = FAGap,
         BendRadiusIO = 15,
         BufLength    = 30,
@@ -165,24 +166,52 @@ def Die2(DieWidth = 4468, DieHeight = 20780, TaperLength = 400, Layer = AL_Layer
         B.xmin = StartX
         B.ymin = NextY
         NextY = B.ymax + BlockGapY
-        
+
     #------------------------------
     # Loss Characterization Wg
     #------------------------------
 
     LossWgParams = [
-        dict(TaperType=1, MarkerOn=True),
-        dict(TaperType=2, MarkerOn=True),
-        # dict(TaperType=3, MarkerOn=True),
-    ]
+        dict(WidthStart=0.100, TaperType=1, MarkerOn=True),
+        dict(WidthStart=0.120, TaperType=1, MarkerOn=True),
+        dict(WidthStart=0.160, TaperType=1, MarkerOn=True),
+        dict(WidthStart=0.2,   TaperType=1, MarkerOn=True),
+        dict(WidthStart=0.240, TaperType=1, MarkerOn=True),
+        dict(WidthStart=0.280, TaperType=1, MarkerOn=True),
+        dict(WidthStart=0.320, TaperType=1, MarkerOn=True),
+        
+        dict(WidthStart=0.100, TaperType=2, MarkerOn=True),
+        dict(WidthStart=0.120, TaperType=2, MarkerOn=True),
+        dict(WidthStart=0.160, TaperType=2, MarkerOn=True),
+        dict(WidthStart=0.2,   TaperType=2, MarkerOn=True),
+        dict(WidthStart=0.240, TaperType=2, MarkerOn=True),
+        dict(WidthStart=0.280, TaperType=2, MarkerOn=True),
+        dict(WidthStart=0.320, TaperType=2, MarkerOn=True),
 
-    NCurveVec   = [(0,1),(4,1),(6,1),]  # (NCurves, NRepeat)
-    LossWgGapY  = 25
+        dict(WidthStart=0.100, TaperType=3, MarkerOn=True),
+        dict(WidthStart=0.120, TaperType=3, MarkerOn=True),
+        dict(WidthStart=0.160, TaperType=3, MarkerOn=True),
+        dict(WidthStart=0.2,   TaperType=3, MarkerOn=True),
+        dict(WidthStart=0.240, TaperType=3, MarkerOn=True),
+        dict(WidthStart=0.280, TaperType=3, MarkerOn=True),
+        dict(WidthStart=0.320, TaperType=3, MarkerOn=True),
+        
+        dict(WidthStart=0.100, TaperType=4, MarkerOn=True),
+        dict(WidthStart=0.120, TaperType=4, MarkerOn=True),
+        dict(WidthStart=0.160, TaperType=4, MarkerOn=True),
+        dict(WidthStart=0.2,   TaperType=4, MarkerOn=True),
+        dict(WidthStart=0.240, TaperType=4, MarkerOn=True),
+        dict(WidthStart=0.280, TaperType=4, MarkerOn=True),
+        dict(WidthStart=0.320, TaperType=4, MarkerOn=True),
+        ]
+
+    NCurveVec   = [(0,1)]  # (NCurves, NRepeat)
+    LossWgGapY  = 0
     WgWidthLoss = 0.6
     LossInLengthX = TotLengthX_EC - 10
-    MaxY        = DieHeight - 100
+    MaxY        = DieHeight - 30
 
-    LossNextY = NextY + BlockGapY -80
+    LossNextY = NextY + BlockGapY - 75
 
     for ECParams in LossWgParams:
         for N, NRepeat in NCurveVec:
@@ -198,10 +227,10 @@ def Die2(DieWidth = 4468, DieHeight = 20780, TaperLength = 400, Layer = AL_Layer
                     TaperOn      = True,
                     Euler        = 0,
                     LabelX       = 0,
-                    LabelY       = 8,
+                    LabelY       = 10,
                     Layer        = AL_Layers.X1P,
                     ECParams     = dict(Length=400, **ECParams),
-                    DeviceID     = f"L{LossLength}T{ECParams['TaperType']}",
+                    DeviceID     = f"L{LossLength}_W{ECParams['WidthStart']:.3f}_T{ECParams['TaperType']}",
                 )
                 LW.xmin   = StartX
                 LW.ymin   = LossNextY
@@ -209,7 +238,6 @@ def Die2(DieWidth = 4468, DieHeight = 20780, TaperLength = 400, Layer = AL_Layer
 
     NextY = LossNextY
 
-        
     #------------------------------
     # Return
     #------------------------------
@@ -218,7 +246,7 @@ def Die2(DieWidth = 4468, DieHeight = 20780, TaperLength = 400, Layer = AL_Layer
 
 if __name__ == "__main__":
     c = Die2()
-    c.write_gds("Die2_test5.gds")
-    print("Written Die2_test5.gds")
+    c.write_gds("Die2_test7.gds")
+    print("Written Die2_test7.gds")
     c.show()
     c.plot()
